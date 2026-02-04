@@ -1,0 +1,1666 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculadora de Renda Fixa</title>
+
+  <!-- Bootstrap CSS (cdnjs) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/css/bootstrap.min.css" referrerpolicy="no-referrer" />
+  <!-- Bootstrap Icons (cdnjs) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css" referrerpolicy="no-referrer" />
+
+  <style>
+    :root { --card-radius: 1.25rem; }
+    body{
+      background: radial-gradient(1200px 600px at 15% 0%, rgba(13,110,253,.12), transparent 55%),
+                  radial-gradient(1000px 600px at 85% 0%, rgba(32,201,151,.12), transparent 55%),
+                  #f8fafc;
+    }
+    .app-header{
+      border-radius: var(--card-radius);
+      background: linear-gradient(135deg, rgba(13,110,253,.95), rgba(32,201,151,.9));
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(0,0,0,.12);
+    }
+    .soft-card{
+      border-radius: var(--card-radius);
+      box-shadow: 0 10px 26px rgba(2,6,23,.08);
+      border: 1px solid rgba(15,23,42,.06);
+    }
+    .index-value{ font-variant-numeric: tabular-nums; letter-spacing: .2px; }
+    .mono{ font-variant-numeric: tabular-nums; }
+
+    .table thead th{ white-space: nowrap; }
+    .table td, .table th { vertical-align: middle; }
+
+    /* Compactação */
+    .w-id   { min-width: 240px; }
+    .w-type { min-width: 150px; }
+    .w-rate { min-width: 145px; }
+    .w-money{ min-width: 130px; }
+    .w-date { min-width: 115px; }
+    .w-days { min-width: 70px; text-align: center; }
+    .w-out-net  { min-width: 160px; text-align: center;	}
+    .w-out-mini { min-width: 85px; font-size: .80rem; }
+
+    .cell-2line{ line-height: 1.1; }
+    .cell-2line small{ color:#64748b; }
+
+    .badge-soft{
+      background: rgba(13,110,253,.10);
+      color: rgb(13,110,253);
+      border: 1px solid rgba(13,110,253,.15);
+    }
+    .muted-note{ color: #64748b; }
+    .spinner-sm{ width: 1rem; height: 1rem; border-width: .18em; }
+
+    .chart-wrap{ height: 420px; }
+    @media (max-width: 992px){
+      .chart-wrap{ height: 360px; }
+    }
+
+    /* Menos destaque em Bruta/IR */
+    .mini-metric{
+      font-size: .85rem;
+      font-weight: 600;
+    }
+    .mini-metric.muted{
+      font-weight: 600;
+      color:#334155;
+    }
+
+    /* Cabeçalhos ordenáveis */
+    .sort-th{
+      border: 0;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      user-select: none;
+      color: inherit;
+      font-weight: 700;
+    }
+    .sort-th:focus-visible{
+      outline: 2px solid rgba(13,110,253,.35);
+      outline-offset: 3px;
+      border-radius: .25rem;
+    }
+    .sort-icon{ vertical-align: -0.1em; }
+    .date-input{
+      max-width: 110px;
+      padding-left: .4rem;
+      padding-right: .4rem;
+    }
+
+    /* Logo centralizado */
+    .logo-badge{
+      width: 56px;
+      height: 56px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,.18);
+    }
+    .logo-badge i{
+      line-height: 1;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container py-4 py-lg-5" id="pdfRoot">
+
+    <div class="app-header p-4 p-lg-5 mb-4">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <div class="logo-badge">
+          <i class="bi bi-graph-up-arrow fs-3"></i>
+        </div>
+
+        <div class="flex-grow-1">
+          <h1 class="h3 mb-1">Calculadora de Renda Fixa</h1>
+          <div class="opacity-75">Compare quantos investimentos desejar, e visualize de forma prática a evolução dos rendimentos.</div>
+        </div>
+
+        <div class="d-flex gap-2">
+          <!--<button id="btnPDF" class="btn btn-outline-light btn-sm fw-semibold" data-export-hide="1">
+            <i class="bi bi-filetype-pdf me-1"></i> Gerar PDF
+          </button>-->
+        </div>
+      </div>
+    </div>
+
+    <!-- Índices -->
+    <div class="soft-card bg-white p-3 p-lg-4 mb-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+          <div class="fw-semibold">Índices (carregados ao abrir)</div>
+          <div class="muted-note small">
+            Fonte: API SGS/BCData do BCB • Atualizado automaticamente
+          </div>
+        </div>
+        <div class="small muted-note">
+          <i class="bi bi-cloud-download me-1"></i><span id="indicesStatus">Carregando…</span>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="soft-card p-3 h-100">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">DI / CDI (a.a.)</div>
+              <i class="bi bi-speedometer2 text-primary"></i>
+            </div>
+            <div class="display-6 fs-2 fw-bold index-value" id="idxCDI">
+              <span class="spinner-border spinner-sm" role="status"></span>
+            </div>
+            <div class="small muted-note" id="idxCDI_date">—</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="soft-card p-3 h-100">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">Selic (a.a.)</div>
+              <i class="bi bi-bank text-primary"></i>
+            </div>
+            <div class="display-6 fs-2 fw-bold index-value" id="idxSelic">
+              <span class="spinner-border spinner-sm" role="status"></span>
+            </div>
+            <div class="small muted-note" id="idxSelic_date">—</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="soft-card p-3 h-100">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">IPCA (12m, a.a.)</div>
+              <i class="bi bi-thermometer-half text-primary"></i>
+            </div>
+            <div class="display-6 fs-2 fw-bold index-value" id="idxIPCA12">
+              <span class="spinner-border spinner-sm" role="status"></span>
+            </div>
+            <div class="small muted-note" id="idxIPCA_date">—</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="soft-card p-3 h-100">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">TR (a.m.)</div>
+              <i class="bi bi-percent text-primary"></i>
+            </div>
+            <div class="display-6 fs-2 fw-bold index-value" id="idxTR">
+              <span class="spinner-border spinner-sm" role="status"></span>
+            </div>
+            <div class="small muted-note" id="idxTR_date">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modo de cálculo de pós-fixados -->
+      <div class="row g-2 mt-3 align-items-end">
+        <div class="col-12 col-lg-5">
+          <label for="rateMode" class="form-label fw-semibold mb-1">Cálculo de pós-fixados (Selic/CDI):</label>
+          <select id="rateMode" class="form-select form-select-sm">
+            <option value="current" selected>Utilizar taxa atual da Selic / CDI até o vencimento dos investimentos</option>
+            <option value="projection">Utilizar projeção futura da Selic / CDI nos cálculos (mais real)</option>
+          </select>
+          <div class="form-text" id="projSelicInfo">Projeção Selic: —</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="soft-card bg-white p-3 p-lg-4 mb-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+          <div class="fw-semibold">Investimentos</div>
+          <div class="muted-note small">
+            Clique no título <b>Valor</b>, <b>Dias</b> ou <b>Rentab. líquida</b> para ordenar.
+          </div>
+        </div>
+
+        <div class="d-flex gap-2" data-export-hide="1">
+          <button id="btnReset" class="btn btn-outline-secondary btn-sm fw-semibold">
+            <i class="bi bi-arrow-clockwise me-1"></i> Restaurar exemplos (reseta campos)
+          </button>
+          <button id="btnPDF" class="btn btn-outline-secondary btn-sm fw-semibold" data-export-hide="1">
+            <i class="bi bi-filetype-pdf me-1"></i> Gerar PDF
+          </button>
+          <button id="btnAddRow" class="btn btn-primary btn-sm fw-semibold">
+            <i class="bi bi-plus-circle me-1"></i> Adicionar investimento
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="w-id">Nome para indentificação</th>
+              <th class="w-type">Tipo</th>
+              <th class="w-rate">Taxa</th>
+
+              <th class="w-money">
+                <button class="sort-th sort-btn" type="button" data-sort="amount" aria-label="Ordenar por Valor">
+                  Valor <i class="bi bi-caret-down-fill ms-1 sort-icon d-none"></i>
+                </button>
+              </th>
+
+              <th class="w-date">Vencimento</th>
+
+              <th class="w-days">
+                <button class="sort-th sort-btn" type="button" data-sort="days" aria-label="Ordenar por Dias">
+                  Dias <i class="bi bi-caret-down-fill ms-1 sort-icon d-none"></i>
+                </button>
+              </th>
+
+              <th class="w-out-net">
+                <button class="sort-th sort-btn" type="button" data-sort="netpct" aria-label="Ordenar por Rentabilidade líquida">
+                  Rentab. líquida <i class="bi bi-caret-down-fill ms-1 sort-icon d-none"></i>
+                </button>
+              </th>
+              <th class="w-out-mini">IR</th>
+              <th class="w-out-mini">Bruta</th>
+
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyInv"></tbody>
+        </table>
+      </div>
+
+      <div class="muted-note small">
+        <i class="bi bi-info-circle me-1"></i>
+        Tooltip em “Dias” mostra <b>equivalência em meses e anos</b>.
+      </div>
+    </div>
+
+    <!-- Gráfico -->
+    <div class="soft-card bg-white p-3 p-lg-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-2">
+        <div>
+          <div class="fw-semibold">Comparação mês a mês (rentabilidade líquida)</div>
+          <div class="muted-note small">Curvas mostram o valor líquido projetado <span class="fw-semibold">se resgatar em cada ponto</span> (IR conforme prazo).</div>
+        </div>
+
+        <div class="btn-group btn-group-sm" role="group" aria-label="Modo do gráfico" data-export-hide="1">
+          <input type="radio" class="btn-check" name="chartMode" id="modePct" autocomplete="off" checked>
+          <label class="btn btn-outline-primary" for="modePct">Exibir rendimento %</label>
+
+          <input type="radio" class="btn-check" name="chartMode" id="modeBRL" autocomplete="off">
+          <label class="btn btn-outline-primary" for="modeBRL">Exibir rendimento R$</label>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+      </div>
+
+      <hr class="my-4">
+
+      <details id="calcNotes">
+        <summary class="fw-semibold">Notas de cálculo (aproximações)</summary>
+        <div class="mt-2 muted-note small">
+          <ul class="mb-3">
+            <li>Taxas e inflação são tratadas como <b>constantes</b> no modo “Selic/CDI atual”.</li>
+            <li>No modo “projeção”, pós-fixados (%CDI) usam a <b>curva de Selic mediana</b> (proxy de CDI) a partir das datas estimadas das reuniões.</li>
+            <li>IR segue tabela regressiva; incide somente sobre o rendimento.</li>
+            <li>LCI/LCA: isenção de IR (modelo simplificado).</li>
+            <li>Poupança: regra baseada na Selic e TR (aproximação mensalizada; TR constante).</li>
+          </ul>
+
+          <div class="border rounded-3 p-2 bg-light">
+            <div class="fw-semibold">Curva de Selic futura usada no modo “projeção”</div>
+            <div class="muted-note small" id="selicProjMeta">—</div>
+            <div class="muted-note small mb-2">
+              Datas estimadas: <span class="mono">R1/AAAA = 31/01/AAAA</span> e cada reunião seguinte ≈ <span class="mono">+45 dias</span>.
+              Após a última data, mantém a última Selic projetada.
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>Reunião</th>
+                    <th>Data</th>
+                    <th class="text-end">Selic (% a.a.)</th>
+                  </tr>
+                </thead>
+                <tbody id="selicProjTableBody">
+                  <tr><td colspan="3" class="muted-note">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </details>
+    </div>
+
+    <div class="text-center mt-4 muted-note small">
+      Autor: Victor Benincasa (<a href="https://github.com/vbenincasa/">https://github.com/vbenincasa/</a>)
+    </div>
+  </div>
+
+  <!-- Popper + Bootstrap JS (cdnjs) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.min.js" referrerpolicy="no-referrer"></script>
+
+  <!-- Chart.js (conforme solicitado) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js" referrerpolicy="no-referrer"></script>
+
+  <!-- PDF libs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js" referrerpolicy="no-referrer"></script>
+
+  <script>
+    // =========================
+    // Config / Estado
+    // =========================
+    const SGS = {
+      SELIC_AA: 1178,
+      CDI_AA:   4389,
+      IPCA_MM:   433,
+      TR_AM:     226
+    };
+
+    const SELIC_PROJ_URL_PRIMARY =
+      "https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoSelic?$top=20&$skip=0&$filter=baseCalculo%20eq%201&$format=json&$select=Indicador,Data,Reuniao,Mediana,baseCalculo";
+    const SELIC_PROJ_URL_FALLBACK =
+      "https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoSelic?$top=20&$skip=0&$filter=BaseCalculo%20eq%201&$format=json&$select=Indicador,Data,Reuniao,Mediana,BaseCalculo";
+
+    const investmentTypes = [
+      { value: "poupanca",    label: "Poupança",       rateKind: "none",       taxable: false },
+      { value: "cdb_pre",     label: "CDB pré",        rateKind: "aa",         taxable: true  },
+      { value: "cdb_pos",     label: "CDB pós",        rateKind: "pct_cdi",    taxable: true  },
+      { value: "cdb_ipca",    label: "CDB IPCA+",      rateKind: "ipca_plus",  taxable: true  },
+      { value: "lci_pre",     label: "LCI/LCA pré",    rateKind: "aa",         taxable: false },
+      { value: "lci_pos",     label: "LCI/LCA pós",    rateKind: "pct_cdi",    taxable: false },
+      { value: "lci_ipca",    label: "LCI/LCA IPCA+",  rateKind: "ipca_plus",  taxable: false },
+    ];
+
+    const state = {
+      indices: {
+        cdiAA: null,
+        selicAA: null,
+        ipca12AA: null,
+        trAM: null,
+        lastDates: { cdi:null, selic:null, ipca:null, tr:null }
+      },
+      chartMode: "pct",
+      sortField: "none",
+      sortDir: "desc",
+      rateMode: "current",
+      selicProjection: null
+    };
+
+    // cores estáveis por linha (não mudam ao ordenar)
+    const colorMap = new Map();
+    let colorSeq = 0;
+    function getColorForKey(key) {
+      if (colorMap.has(key)) return colorMap.get(key);
+      const hue = (colorSeq++ * 53) % 360;
+      const c = `hsl(${hue} 75% 45%)`;
+      colorMap.set(key, c);
+      return c;
+    }
+
+    // =========================
+    // Helpers: formatação / datas
+    // =========================
+    const fmtPct = (n) => (Number.isFinite(n) ? n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%" : "—");
+    const fmtBRL = (n) => (Number.isFinite(n) ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—");
+
+    function todayLocal() {
+      const d = new Date();
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    function diffDays(a, b) {
+      const ms = b.getTime() - a.getTime();
+      return Math.floor(ms / (1000 * 60 * 60 * 24));
+    }
+
+    function addDays(date, days) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+
+    function formatBRDate(d) {
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    function parseBRDateStrict(s) {
+      const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s || "").trim());
+      if (!m) return null;
+      const dd = Number(m[1]), mm = Number(m[2]), yyyy = Number(m[3]);
+      const d = new Date(yyyy, mm - 1, dd);
+      if (d.getFullYear() !== yyyy || d.getMonth() !== (mm - 1) || d.getDate() !== dd) return null;
+      return d;
+    }
+
+    function daysInMonth(year, monthIndex0) {
+      return new Date(year, monthIndex0 + 1, 0).getDate();
+    }
+
+    function addMonthsClamped(date, months) {
+      const y0 = date.getFullYear();
+      const m0 = date.getMonth();
+      const d0 = date.getDate();
+      let m = m0 + months;
+      let y = y0 + Math.floor(m / 12);
+      m = ((m % 12) + 12) % 12;
+      const dd = Math.min(d0, daysInMonth(y, m));
+      return new Date(y, m, dd);
+    }
+
+    function approxMonthsFromDays(dias) {
+      return Math.round((dias / 30.4375) * 10) / 10;
+    }
+	
+	function approxYearsFromDays(dias) {
+	  return Math.round((dias / 365.25) * 10) / 10;
+	}
+
+    // =========================
+    // Máscara leve dd/mm/aaaa
+    // =========================
+    function wireDateMask(input) {
+      if (!input || input.dataset.masked === "1") return;
+      input.dataset.masked = "1";
+
+      input.addEventListener("input", () => {
+        const digits = input.value.replace(/\D/g, "").slice(0, 8);
+        let out = digits;
+        if (digits.length >= 3) out = digits.slice(0,2) + "/" + digits.slice(2);
+        if (digits.length >= 5) out = out.slice(0,5) + "/" + out.slice(5);
+        input.value = out;
+      });
+
+      input.addEventListener("blur", () => {
+        const d = parseBRDateStrict(input.value);
+        input.classList.toggle("is-invalid", !!input.value && !d);
+      });
+    }
+
+    // =========================
+    // Projeção Selic (Olinda)
+    // =========================
+    function parseNumberFlexible(x) {
+      if (typeof x === "number") return x;
+      let s = String(x ?? "").trim();
+      if (s.includes(".") && s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+      else if (s.includes(",")) s = s.replace(",", ".");
+      const n = Number(s);
+      return Number.isFinite(n) ? n : NaN;
+    }
+
+    function reuniaoToDate(reuniao) {
+      const m = /^R(\d{1,2})\/(\d{4})$/.exec(String(reuniao || "").trim());
+      if (!m) return null;
+      const k = Number(m[1]);
+      const year = Number(m[2]);
+      if (!Number.isFinite(k) || !Number.isFinite(year) || k <= 0) return null;
+
+      const base = new Date(year, 0, 31); // 31/jan
+      return addDays(base, (k - 1) * 45);
+    }
+
+    async function fetchJsonAny(urls) {
+      let lastErr = null;
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, { headers: { "Accept": "application/json" } });
+          if (!res.ok) {
+            lastErr = new Error(`HTTP ${res.status} em ${url}`);
+            continue;
+          }
+          return { json: await res.json(), url };
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw lastErr ?? new Error("Falha ao buscar JSON");
+    }
+
+    function renderSelicProjectionNotes() {
+      const meta = document.getElementById("selicProjMeta");
+      const tbody = document.getElementById("selicProjTableBody");
+      if (!meta || !tbody) return;
+
+      const proj = state.selicProjection;
+      if (!proj?.points?.length) {
+        meta.textContent = "Projeção indisponível. Quando o modo “projeção” estiver ativo, será usado Selic/CDI atual.";
+        tbody.innerHTML = `<tr><td colspan="3" class="muted-note">—</td></tr>`;
+        return;
+      }
+
+      const last = proj.points.at(-1);
+      meta.textContent = `Base ${proj.asOf.toLocaleDateString("pt-BR")} • ${proj.points.length} reuniões • Após a última data, mantém ${last.selicAA.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}% a.a.`;
+
+      tbody.innerHTML = proj.points.map(p => `
+        <tr>
+          <td class="mono">${p.reuniao}</td>
+          <td class="mono">${p.date.toLocaleDateString("pt-BR")}</td>
+          <td class="text-end mono">${p.selicAA.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%</td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadSelicProjectionCurve() {
+      const infoEl = document.getElementById("projSelicInfo");
+      if (infoEl) infoEl.textContent = "Projeção Selic: carregando…";
+
+      try {
+        const { json, url } = await fetchJsonAny([SELIC_PROJ_URL_PRIMARY, SELIC_PROJ_URL_FALLBACK]);
+        const rows = Array.isArray(json?.value) ? json.value : [];
+
+        const tsMax = Math.max(...rows.map(r => Date.parse(r.Data)).filter(Number.isFinite));
+        if (!Number.isFinite(tsMax)) throw new Error("Não foi possível determinar a Data mais recente da projeção.");
+
+        const asOf = new Date(tsMax);
+        const rowsLatest = rows.filter(r => Date.parse(r.Data) === tsMax);
+
+        const points = rowsLatest
+          .map(r => {
+            const date = reuniaoToDate(r.Reuniao);
+            const selicAA = parseNumberFlexible(r.Mediana);
+            return { reuniao: r.Reuniao, date, selicAA };
+          })
+          .filter(p => p.date instanceof Date && !isNaN(p.date) && Number.isFinite(p.selicAA))
+          .sort((a, b) => a.date - b.date);
+
+        const uniq = [];
+        const seen = new Set();
+        for (const p of points) {
+          const key = `${p.date.getFullYear()}-${p.date.getMonth()}-${p.date.getDate()}`;
+          if (!seen.has(key)) { seen.add(key); uniq.push(p); }
+        }
+
+        state.selicProjection = { asOf, points: uniq, sourceUrl: url };
+
+        if (infoEl) {
+          infoEl.textContent = `Projeção Selic (mediana) base ${asOf.toLocaleDateString("pt-BR")} • ${uniq.length} reuniões`;
+        }
+      } catch (err) {
+        console.error(err);
+        state.selicProjection = null;
+        if (infoEl) infoEl.textContent = "Projeção Selic: indisponível (usando Selic/CDI atual).";
+      } finally {
+        renderSelicProjectionNotes();
+      }
+    }
+
+    function getSelicChangePointsFromProjection() {
+      const proj = state.selicProjection;
+      if (!proj?.points?.length) return [];
+      return proj.points.map(p => ({ date: p.date, rateAA: p.selicAA }));
+    }
+
+    function factorVariableAnnualRate(start, end, initialRateAA, changePoints, multiplier = 1) {
+      if (!(start instanceof Date) || !(end instanceof Date) || isNaN(start) || isNaN(end)) return NaN;
+      if (end <= start) return 1;
+
+      let cur = new Date(start);
+      let factor = 1;
+      let curRate = (Number.isFinite(initialRateAA) ? initialRateAA : 0); // % a.a.
+
+      const changes = (changePoints || [])
+        .filter(p => p?.date instanceof Date && !isNaN(p.date) && Number.isFinite(p.rateAA) && p.date > start)
+        .sort((a, b) => a.date - b.date);
+
+      for (const ch of changes) {
+        if (cur >= end) break;
+
+        const segEnd = ch.date < end ? ch.date : end;
+        const segDays = diffDays(cur, segEnd);
+        if (segDays > 0) {
+          const r = (curRate / 100) * multiplier;
+          factor *= Math.pow(1 + r, segDays / 365);
+          cur = segEnd;
+        }
+        curRate = ch.rateAA;
+      }
+
+      if (cur < end) {
+        const segDays = diffDays(cur, end);
+        if (segDays > 0) {
+          const r = (curRate / 100) * multiplier;
+          factor *= Math.pow(1 + r, segDays / 365);
+        }
+      }
+
+      return factor;
+    }
+
+    // =========================
+    // Fetch SGS (últimos N)
+    // =========================
+    async function fetchSGSLast(series, n = 1) {
+      const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${series}/dados/ultimos/${n}?formato=json`;
+      const res = await fetch(url, { headers: { "Accept": "application/json" }});
+      if (!res.ok) throw new Error(`Erro ao buscar série ${series}: HTTP ${res.status}`);
+      const json = await res.json();
+      return json
+        .map(x => ({
+          date: parseBRDateStrict(x.data),
+          value: Number(String(x.valor).replace(",", "."))
+        }))
+        .filter(x => x.date instanceof Date && !isNaN(x.date) && Number.isFinite(x.value));
+    }
+
+    async function loadIndices() {
+      const statusEl = document.getElementById("indicesStatus");
+      statusEl.textContent = "Carregando…";
+
+      try {
+        const [selicArr, cdiArr, trArr, ipcaArr] = await Promise.all([
+          fetchSGSLast(SGS.SELIC_AA, 1),
+          fetchSGSLast(SGS.CDI_AA, 1),
+          fetchSGSLast(SGS.TR_AM, 1),
+          fetchSGSLast(SGS.IPCA_MM, 13)
+        ]);
+
+        state.indices.selicAA = selicArr.at(-1)?.value ?? null;
+        state.indices.cdiAA   = cdiArr.at(-1)?.value ?? null;
+        state.indices.trAM    = trArr.at(-1)?.value ?? null;
+
+        state.indices.lastDates.selic = selicArr.at(-1)?.date ?? null;
+        state.indices.lastDates.cdi   = cdiArr.at(-1)?.date ?? null;
+        state.indices.lastDates.tr    = trArr.at(-1)?.date ?? null;
+
+        const last12 = ipcaArr.slice(-12);
+        let factor = 1;
+        for (const m of last12) factor *= (1 + (m.value / 100));
+        state.indices.ipca12AA = (factor - 1) * 100;
+        state.indices.lastDates.ipca = last12.at(-1)?.date ?? null;
+
+        document.getElementById("idxSelic").textContent = fmtPct(state.indices.selicAA);
+        document.getElementById("idxCDI").textContent   = fmtPct(state.indices.cdiAA);
+        document.getElementById("idxTR").textContent    = fmtPct(state.indices.trAM);
+        document.getElementById("idxIPCA12").textContent= fmtPct(state.indices.ipca12AA);
+
+        document.getElementById("idxSelic_date").textContent = state.indices.lastDates.selic ? `Último dado: ${state.indices.lastDates.selic.toLocaleDateString("pt-BR")}` : "—";
+        document.getElementById("idxCDI_date").textContent   = state.indices.lastDates.cdi   ? `Último dado: ${state.indices.lastDates.cdi.toLocaleDateString("pt-BR")}` : "—";
+        document.getElementById("idxTR_date").textContent    = state.indices.lastDates.tr    ? `Último dado: ${state.indices.lastDates.tr.toLocaleDateString("pt-BR")}` : "—";
+        document.getElementById("idxIPCA_date").textContent  = state.indices.lastDates.ipca  ? `Último mês: ${state.indices.lastDates.ipca.toLocaleDateString("pt-BR", { month:"2-digit", year:"numeric" })}` : "—";
+
+        statusEl.textContent = "OK";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Falha ao carregar índices (veja console)";
+      }
+    }
+
+    // =========================
+    // IR regressivo
+    // =========================
+    function irAliquotaPorDias(dias) {
+      if (dias <= 180) return 22.5;
+      if (dias <= 360) return 20.0;
+      if (dias <= 720) return 17.5;
+      return 15.0;
+    }
+
+    // =========================
+    // Cálculos
+    // =========================
+    function grossFactorFor(inv, dias) {
+      const { selicAA, cdiAA, ipca12AA, trAM } = state.indices;
+
+      if (!isFinite(dias) || dias < 0) return NaN;
+      if (dias === 0) return 1;
+
+      const typeMeta = investmentTypes.find(t => t.value === inv.type);
+      if (!typeMeta) return NaN;
+
+      const expo = dias / 365;
+      const t0 = todayLocal();
+      const t1 = addDays(t0, dias);
+
+      // Poupança
+      if (typeMeta.value === "poupanca") {
+        const tr = (trAM ?? 0) / 100; // a.m.
+
+        const monthlyFromSelic = (selicAA_local) => {
+          const selicDec = (selicAA_local ?? 0) / 100;
+          return (selicAA_local ?? 0) > 8.5
+            ? (0.005 + tr)
+            : ((selicDec * 0.70) / 12 + tr);
+        };
+
+        if (state.rateMode === "projection" && state.selicProjection?.points?.length) {
+          const changes = getSelicChangePointsFromProjection().map(p => ({ date: p.date, rateAA: p.rateAA }));
+          let cur = new Date(t0);
+          let factor = 1;
+          let curSelicAA = Number.isFinite(selicAA) ? selicAA : 0;
+
+          for (const ch of changes.filter(x => x.date > t0).sort((a,b)=>a.date-b.date)) {
+            if (cur >= t1) break;
+            const segEnd = ch.date < t1 ? ch.date : t1;
+            const segDays = diffDays(cur, segEnd);
+            if (segDays > 0) {
+              const m = monthlyFromSelic(curSelicAA);
+              factor *= Math.pow(1 + m, segDays / 30);
+              cur = segEnd;
+            }
+            curSelicAA = ch.rateAA;
+          }
+
+          if (cur < t1) {
+            const segDays = diffDays(cur, t1);
+            const m = monthlyFromSelic(curSelicAA);
+            factor *= Math.pow(1 + m, segDays / 30);
+          }
+
+          return factor;
+        }
+
+        const m = monthlyFromSelic(selicAA);
+        return Math.pow(1 + m, dias / 30);
+      }
+
+      // Pré
+      if (typeMeta.rateKind === "aa") {
+        const r = (inv.rate ?? 0) / 100;
+        return Math.pow(1 + r, expo);
+      }
+
+      // Pós (%CDI)
+      if (typeMeta.rateKind === "pct_cdi") {
+        const pct = (inv.rate ?? 0) / 100;
+
+        if (state.rateMode === "projection" && state.selicProjection?.points?.length) {
+          const changes = getSelicChangePointsFromProjection();
+          const initial = Number.isFinite(cdiAA) ? cdiAA : 0; // até 1ª mudança
+          return factorVariableAnnualRate(t0, t1, initial, changes, pct);
+        }
+
+        const base = (cdiAA ?? 0) / 100;
+        const r = base * pct;
+        return Math.pow(1 + r, expo);
+      }
+
+      // IPCA+
+      if (typeMeta.rateKind === "ipca_plus") {
+        const spread = (inv.rate ?? 0) / 100;
+        const ipca = (ipca12AA ?? 0) / 100;
+        return Math.pow(1 + ipca, expo) * Math.pow(1 + spread, expo);
+      }
+
+      return NaN;
+    }
+
+    function netValueAt(inv, dias) {
+      const typeMeta = investmentTypes.find(t => t.value === inv.type);
+      if (!typeMeta) return NaN;
+
+      const grossFactor = grossFactorFor(inv, dias);
+      if (!Number.isFinite(grossFactor) || !Number.isFinite(inv.amount) || inv.amount <= 0) return NaN;
+
+      const grossFinal = inv.amount * grossFactor;
+      const profit = Math.max(0, grossFinal - inv.amount);
+
+      const irAliq = typeMeta.taxable ? irAliquotaPorDias(dias) : 0;
+      const irAmount = typeMeta.taxable ? (profit * (irAliq / 100)) : 0;
+
+      return inv.amount + profit - irAmount;
+    }
+
+    // =========================
+    // Inputs: dinheiro
+    // =========================
+    function brlToNumber(str) {
+      const cleaned = String(str).replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : NaN;
+    }
+    function numberToBRLInput(n) {
+      if (!Number.isFinite(n)) return "";
+      return n.toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+    }
+
+    // =========================
+    // UI: linhas
+    // =========================
+    let rowSeq = 1;
+
+    function rateUnitForKind(kind) {
+      if (kind === "aa") return "% a.a.";
+      if (kind === "pct_cdi") return "% CDI";
+      if (kind === "ipca_plus") return "% a.a.";
+      return "—";
+    }
+
+    function defaultRateForType(type) {
+      switch(type) {
+        case "cdb_pre": return 12.0;
+        case "cdb_pos": return 110.0;
+        case "cdb_ipca": return 6.0;
+        case "lci_pre": return 11.0;
+        case "lci_pos": return 95.0;
+        case "lci_ipca": return 5.5;
+        default: return null;
+      }
+    }
+
+    function addRow(prefill = {}) {
+      const tbody = document.getElementById("tbodyInv");
+      const id = `r${rowSeq++}`;
+
+      const type = prefill.type ?? "cdb_pos";
+      const typeMeta = investmentTypes.find(t => t.value === type);
+      const rateKind = typeMeta?.rateKind ?? "aa";
+
+      const amount = Number.isFinite(prefill.amount) ? prefill.amount : 10000;
+      const rate = Number.isFinite(prefill.rate) ? prefill.rate : defaultRateForType(type);
+
+      const t0 = todayLocal();
+      const maturityStr = prefill.maturityStr ?? formatBRDate(addMonthsClamped(t0, 12));
+
+      const tr = document.createElement("tr");
+      tr.dataset.rowId = id;
+
+      tr.innerHTML = `
+        <td class="w-id">
+          <input type="text" class="form-control form-control-sm id-input" placeholder="Ex.: Reserva 1" value="${(prefill.name ?? `Investimento ${id.toUpperCase()}`)}">
+        </td>
+
+        <td class="w-type">
+          <select class="form-select form-select-sm type-input">
+            ${investmentTypes.map(t => `<option value="${t.value}" ${t.value===type?"selected":""}>${t.label}</option>`).join("")}
+          </select>
+        </td>
+
+        <td class="w-rate">
+          <div class="input-group input-group-sm">
+            <input type="number" step="0.01" class="form-control rate-input" placeholder="${rateKind==='pct_cdi'?'Ex.: 110':'Ex.: 12,5'}" value="${rate ?? ""}" ${rateKind==="none" ? "disabled" : ""}>
+            <span class="input-group-text rate-unit">${rateUnitForKind(rateKind)}</span>
+          </div>
+        </td>
+
+        <td class="w-money">
+          <input type="text" class="form-control form-control-sm money-input mono" inputmode="decimal" value="${numberToBRLInput(amount)}">
+        </td>
+
+        <td class="w-date">
+          <input type="text" class="form-control form-control-sm date-input mono" inputmode="numeric" placeholder="dd/mm/aaaa" value="${maturityStr}">
+        </td>
+
+        <td class="w-days">
+          <span class="badge badge-soft days-badge" data-bs-toggle="tooltip" data-bs-title="—">—</span>
+        </td>
+
+        <td class="w-out-net">
+          <div class="cell-2line">
+            <div class="fw-semibold mono net-pct">—</div>
+            <small class="net-val">—</small>
+          </div>
+        </td>
+
+        <td class="w-out-mini">
+          <div class="cell-2line">
+            <div class="mini-metric mono ir-pct">—</div>
+            <small class="ir-info">—</small>
+          </div>
+        </td>
+
+        <td class="w-out-mini">
+          <div class="cell-2line">
+            <div class="mini-metric muted mono gross-pct">—</div>
+            <small class="gross-val">—</small>
+          </div>
+        </td>
+
+        <td class="text-end" data-export-hide="1">
+          <button class="btn btn-outline-danger btn-sm btnRemove" title="Remover investimento">
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+
+      wireDateMask(tr.querySelector(".date-input"));
+
+      const badge = tr.querySelector(".days-badge");
+      bootstrap.Tooltip.getOrCreateInstance(badge, { trigger: "hover", placement: "top", container: "body" });
+
+      refreshAll();
+    }
+
+    function updateRowUI(tr) {
+      const type = tr.querySelector(".type-input").value;
+      const typeMeta = investmentTypes.find(t => t.value === type);
+      const rateInput = tr.querySelector(".rate-input");
+      const rateUnit = tr.querySelector(".rate-unit");
+
+      const kind = typeMeta?.rateKind ?? "aa";
+      rateUnit.textContent = rateUnitForKind(kind);
+
+      if (kind === "none") {
+        rateInput.value = "";
+        rateInput.disabled = true;
+      } else {
+        rateInput.disabled = false;
+        if (rateInput.value === "") {
+          const d = defaultRateForType(type);
+          if (Number.isFinite(d)) rateInput.value = d;
+        }
+        rateInput.placeholder = (kind === "pct_cdi") ? "Ex.: 110" : "Ex.: 12,5";
+      }
+    }
+
+    function readInvestmentFromRow(tr) {
+      const name = tr.querySelector(".id-input").value.trim() || "Sem nome";
+      const type = tr.querySelector(".type-input").value;
+
+      const amount = brlToNumber(tr.querySelector(".money-input").value);
+      const rate = Number(tr.querySelector(".rate-input").value);
+
+      const dateStr = tr.querySelector(".date-input").value;
+      const maturity = parseBRDateStrict(dateStr);
+
+      return {
+        key: tr.dataset.rowId,
+        name,
+        type,
+        amount,
+        rate: Number.isFinite(rate) ? rate : null,
+        maturity
+      };
+    }
+
+    function setDaysTooltip(badgeEl, text) {
+      badgeEl.setAttribute("data-bs-title", text);
+      const tt = bootstrap.Tooltip.getInstance(badgeEl);
+      if (tt && typeof tt.setContent === "function") {
+        tt.setContent({ ".tooltip-inner": text });
+      }
+    }
+
+    function computeAndFillRow(tr) {
+      updateRowUI(tr);
+
+      const inv = readInvestmentFromRow(tr);
+      const t0 = todayLocal();
+
+      let dias = NaN;
+      if (inv.maturity instanceof Date && !isNaN(inv.maturity)) dias = diffDays(t0, inv.maturity);
+
+      const badge = tr.querySelector(".days-badge");
+
+      if (!Number.isFinite(dias)) {
+        badge.textContent = "—";
+        badge.classList.remove("text-bg-warning");
+        badge.classList.add("badge-soft");
+        setDaysTooltip(badge, "Informe uma data válida (dd/mm/aaaa).");
+      } else if (dias < 0) {
+        badge.textContent = "venc.";
+        badge.classList.remove("badge-soft");
+        badge.classList.add("text-bg-warning");
+        setDaysTooltip(badge, `Vencido há ${Math.abs(dias)} dias.`);
+      } else {
+        badge.textContent = String(dias);
+        badge.classList.remove("text-bg-warning");
+        badge.classList.add("badge-soft");
+        setDaysTooltip(badge, `≈ ${approxMonthsFromDays(dias)} meses / ≈ ${approxYearsFromDays(dias)} anos`);
+      }
+
+      const hasBasics = Number.isFinite(inv.amount) && inv.amount > 0 && Number.isFinite(dias) && dias >= 0;
+      const typeMeta = investmentTypes.find(t => t.value === inv.type);
+
+      const needsRate = typeMeta && typeMeta.rateKind !== "none";
+      const rateOk = !needsRate || Number.isFinite(inv.rate);
+
+      // Patch: não falha com índice 0
+      const idx = state.indices;
+      const idxOk = [idx.selicAA, idx.cdiAA, idx.ipca12AA, idx.trAM]
+        .every(v => v !== null && v !== undefined && Number.isFinite(v));
+
+      if (!hasBasics || !typeMeta || !rateOk || !idxOk) {
+        tr.querySelector(".gross-pct").textContent = "—";
+        tr.querySelector(".gross-val").textContent = "—";
+        tr.querySelector(".ir-pct").textContent = "—";
+        tr.querySelector(".ir-info").textContent = "—";
+        tr.querySelector(".net-pct").textContent = "—";
+        tr.querySelector(".net-val").textContent = "—";
+
+        tr.dataset.amount = Number.isFinite(inv.amount) ? inv.amount : "";
+        tr.dataset.days = Number.isFinite(dias) ? dias : "";
+        tr.dataset.netpct = "";
+        return null;
+      }
+
+      const gf = grossFactorFor(inv, dias);
+      const grossFinal = inv.amount * gf;
+      const grossReturnPct = (grossFinal / inv.amount - 1) * 100;
+
+      const irAliq = typeMeta.taxable ? irAliquotaPorDias(dias) : 0;
+      const profit = Math.max(0, grossFinal - inv.amount);
+      const irAmount = typeMeta.taxable ? (profit * (irAliq / 100)) : 0;
+      const netFinal = inv.amount + profit - irAmount;
+      const netReturnPct = (netFinal / inv.amount - 1) * 100;
+	  
+      // Exibir nas colunas "Líquida" e "Bruta" apenas o rendimento (não o montante total)
+      const grossYield = profit;                 // rendimento bruto (R$)
+      const netYield = profit - irAmount;        // rendimento líquido (R$)
+
+      tr.querySelector(".net-pct").textContent = fmtPct(netReturnPct);
+      tr.querySelector(".net-val").textContent = fmtBRL(netYield);
+
+      tr.querySelector(".ir-pct").textContent = typeMeta.taxable ? fmtPct(irAliq) : "Isento";
+      tr.querySelector(".ir-info").textContent = irAmount > 0 ? `-${fmtBRL(irAmount)}` : fmtBRL(0);
+
+      tr.querySelector(".gross-pct").textContent = fmtPct(grossReturnPct);
+      tr.querySelector(".gross-val").textContent = fmtBRL(grossYield);
+
+      tr.dataset.amount = inv.amount;
+      tr.dataset.days = dias;
+      tr.dataset.netpct = netReturnPct;
+
+      return { ...inv, dias, grossFinal, netFinal, grossReturnPct, netReturnPct, ir: irAliq, irAmount };
+    }
+
+    // =========================
+    // Ordenação (cabeçalho)
+    // =========================
+    function setSort(field) {
+      if (state.sortField === field) {
+        state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        state.sortField = field;
+        state.sortDir = "desc";
+      }
+      updateSortHeaderIcons();
+      refreshAll();
+    }
+
+    function applySort() {
+      if (state.sortField === "none") return;
+
+      const tbody = document.getElementById("tbodyInv");
+      const rows = [...tbody.querySelectorAll("tr")];
+
+      const dir = state.sortDir === "asc" ? 1 : -1;
+
+      rows.sort((a, b) => {
+        const va = Number(a.dataset[state.sortField]);
+        const vb = Number(b.dataset[state.sortField]);
+
+        const aOk = Number.isFinite(va);
+        const bOk = Number.isFinite(vb);
+        if (!aOk && !bOk) return 0;
+        if (!aOk) return 1;
+        if (!bOk) return -1;
+
+        if (va === vb) return 0;
+        return (va < vb ? -1 : 1) * dir;
+      });
+
+      for (const r of rows) tbody.appendChild(r);
+    }
+
+    function updateSortHeaderIcons() {
+      const btns = [...document.querySelectorAll(".sort-btn")];
+      for (const b of btns) {
+        const icon = b.querySelector(".sort-icon");
+        const field = b.dataset.sort;
+        if (field === state.sortField) {
+          icon.classList.remove("d-none");
+          icon.className = `bi ${state.sortDir === "asc" ? "bi-caret-up-fill" : "bi-caret-down-fill"} ms-1 sort-icon`;
+        } else {
+          icon.classList.add("d-none");
+        }
+      }
+    }
+
+    // =========================
+    // Gráfico (Chart.js)
+    // =========================
+    let chart;
+
+    // Linhas divisórias a cada 12 meses a partir do início do gráfico
+    // (não depende dos "ticks" do eixo X, que podem ser auto-skip)
+    const yearDividerPlugin = {
+      id: "yearDividers",
+      beforeDatasetsDraw(chart) {
+        const x = chart.scales?.x;
+        const y = chart.scales?.y;
+        const area = chart.chartArea;
+        if (!x || !y || !area) return;
+
+        const start = chart.$startDate;
+        const labelDates = chart.$labelDates;
+        if (!(start instanceof Date) || !Array.isArray(labelDates) || !labelDates.length) return;
+    
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.strokeStyle = "rgba(2, 6, 23, 0.18)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]); // sutil
+    
+        for (let i = 0; i < labelDates.length; i++) {
+          const d = labelDates[i];
+          if (!(d instanceof Date) || isNaN(d)) continue;
+    
+          const monthsDiff =
+            (d.getFullYear() - start.getFullYear()) * 12 +
+            (d.getMonth() - start.getMonth());
+    
+          if (monthsDiff > 0 && monthsDiff % 12 === 0) {
+            // IMPORTANTe: usa o índice do label (categoria), não o índice de tick (que pode ser auto-skip)
+            const xPos = x.getPixelForValue(i);
+            if (!Number.isFinite(xPos)) continue;
+            if (xPos < area.left || xPos > area.right) continue;
+    
+            ctx.beginPath();
+            ctx.moveTo(xPos, area.top);
+            ctx.lineTo(xPos, area.bottom);
+            ctx.stroke();
+          }
+        }
+    
+        ctx.restore();
+      }
+    };
+
+    // Cache de datasets por investimento (para atualizar só o que mudou)
+    const datasetByKey = new Map();
+
+    // Cache do último estado válido de cada investimento (para não "sumir" enquanto digita)
+    state.invCache = new Map();
+
+    // Timeline mensal fixa (só estende quando necessário)
+    state.chartStart = null;
+    state.chartEnd = null;
+    state.labelDates = null;
+
+    // Coalescing: evita atualizar várias vezes por frame enquanto digita
+    let pendingInvForChart = null;
+    let chartRAF = 0;
+
+    // Debounce por investimento: evita reiniciar a animação a cada tecla
+    // (o Chart.js reinicia a transição quando chart.update() é chamado repetidamente)
+    const invUpdateTimers = new Map();
+
+    function ensureChart() {
+      Chart.register(yearDividerPlugin);
+
+      const ctx = document.getElementById("chart");
+      chart = new Chart(ctx, {
+        type: "line",
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "nearest", intersect: false },
+
+          // Transição suave (sem "pulo" ao atualizar valores)
+          animation: { duration: 450, easing: "easeInOutQuart" },
+
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label: (c) => {
+                  const v = c.parsed.y;
+                  if (v === null || v === undefined || Number.isNaN(v)) return `${c.dataset.label}: —`;
+                  return state.chartMode === "pct"
+                    ? `${c.dataset.label}: ${fmtPct(v)}`
+                    : `${c.dataset.label}: ${fmtBRL(v)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                callback: (v) => {
+                  const n = Number(v);
+                  if (!Number.isFinite(n)) return "";
+                  return state.chartMode === "pct"
+                    ? `${n.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} %`
+                    : n.toLocaleString("pt-BR");
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Timeline inicial: começa hoje
+      state.chartStart = todayLocal();
+      state.chartEnd = new Date(state.chartStart);
+      state.labelDates = [new Date(state.chartStart)];
+      chart.data.labels = state.labelDates.map(dateLabel);
+
+      // Para plugin de divisórias anuais
+      chart.$startDate = state.chartStart;
+      chart.$labelDates = state.labelDates;
+    }
+
+    function dateLabel(d) {
+      return d.toLocaleDateString("pt-BR");
+    }
+
+    function buildMonthlyLabelDates(start, end) {
+      const dates = [new Date(start)];
+      let k = 1;
+      while (true) {
+        const d = addMonthsClamped(start, k++);
+        if (d > end) break;
+        dates.push(d);
+        if (k > 600) break;
+      }
+      return dates;
+    }
+
+    // Só estende o eixo X quando necessário (não encolhe enquanto o usuário está editando)
+    function ensureTimelineUpTo(endDate) {
+      if (!chart) return;
+
+      if (!(state.chartStart instanceof Date) || isNaN(state.chartStart)) {
+        state.chartStart = todayLocal();
+      }
+
+      const safeEnd = (endDate instanceof Date && !isNaN(endDate)) ? endDate : state.chartStart;
+
+      if (!(state.chartEnd instanceof Date) || isNaN(state.chartEnd) || safeEnd > state.chartEnd) {
+        state.chartEnd = new Date(safeEnd);
+        state.labelDates = buildMonthlyLabelDates(state.chartStart, state.chartEnd);
+
+        chart.data.labels = state.labelDates.map(dateLabel);
+
+        // Ajusta o tamanho dos datasets existentes
+        for (const ds of chart.data.datasets) {
+          if (!Array.isArray(ds.data)) ds.data = [];
+          while (ds.data.length < state.labelDates.length) ds.data.push(null);
+        }
+
+        chart.$startDate = state.chartStart;
+        chart.$labelDates = state.labelDates;
+      }
+    }
+
+    function computeSeries(inv) {
+      const dates = state.labelDates || [todayLocal()];
+      return dates.map(d => {
+        if (inv.maturity instanceof Date && d > inv.maturity) return null;
+
+        const dias = diffDays(state.chartStart, d);
+        if (dias < 0) return null;
+
+        const net = netValueAt(inv, dias);
+        if (!Number.isFinite(net)) return null;
+
+        return state.chartMode === "pct"
+          ? (net / inv.amount - 1) * 100
+          : net;
+      });
+    }
+
+    function upsertDataset(inv) {
+      let ds = datasetByKey.get(inv.key);
+      const color = getColorForKey(inv.key);
+
+      if (!ds) {
+        ds = {
+          _key: inv.key,
+          label: inv.name,
+          data: new Array(state.labelDates.length).fill(null),
+          borderColor: color,
+          backgroundColor: color,
+          tension: 0.25,
+          spanGaps: false,
+          pointRadius: 2,
+          pointHoverRadius: 5
+        };
+        datasetByKey.set(inv.key, ds);
+        chart.data.datasets.push(ds);
+      }
+
+      ds.label = inv.name;
+      return ds;
+    }
+
+    function removeDataset(key) {
+      const ds = datasetByKey.get(key);
+      if (!ds) return;
+
+      datasetByKey.delete(key);
+      const idx = chart.data.datasets.indexOf(ds);
+      if (idx >= 0) chart.data.datasets.splice(idx, 1);
+    }
+
+    function updateOnlyInvestmentInChart(inv) {
+      if (!chart) return;
+
+      ensureTimelineUpTo(inv.maturity);
+
+      const ds = upsertDataset(inv);
+      const series = computeSeries(inv);
+
+      // IMPORTANTE: não zere o array (ds.data.length = 0), pois isso destrói os elementos
+      // internos do Chart.js e faz a linha parecer "recriada" a cada edição.
+      // Atualize in-place para o Chart animar apenas a transição dos valores.
+      if (!Array.isArray(ds.data)) ds.data = new Array(state.labelDates.length).fill(null);
+      if (ds.data.length !== series.length) ds.data.length = series.length;
+      for (let i = 0; i < series.length; i++) ds.data[i] = series[i];
+
+      chart.update();
+    }
+
+    function scheduleInvestmentChartUpdate(inv, immediate = false) {
+      if (!inv?.key) return;
+
+      // Mantém o último estado válido para a mesma chave
+      pendingInvForChart = inv;
+
+      const key = inv.key;
+      const prev = invUpdateTimers.get(key);
+      if (prev) clearTimeout(prev);
+
+      const run = () => {
+        invUpdateTimers.delete(key);
+        // Usa sempre o último estado válido (evita usar um snapshot "antigo")
+        const latest = state.invCache.get(key) || pendingInvForChart;
+        if (latest) {
+          // garante que o update acontece alinhado ao frame (canvas)
+          if (chartRAF) cancelAnimationFrame(chartRAF);
+          chartRAF = requestAnimationFrame(() => {
+            chartRAF = 0;
+            updateOnlyInvestmentInChart(latest);
+          });
+        }
+      };
+
+      if (immediate) {
+        run();
+        return;
+      }
+
+      // Pequeno atraso: suaviza porque evita reiniciar a animação a cada tecla
+      invUpdateTimers.set(key, setTimeout(run, 140));
+    }
+
+    // Sincronização global (mudanças que afetam todos: modo %, Selic/CDI atual vs projeção, reset, load índices...)
+    function syncAllInvestmentsInChart(investments) {
+      if (!chart) return;
+
+      const maxMat = investments
+        .map(i => i.maturity)
+        .filter(d => d instanceof Date && !isNaN(d))
+        .sort((a,b) => a - b)
+        .at(-1);
+
+      ensureTimelineUpTo(maxMat || state.chartStart);
+
+      const keysNow = new Set(investments.map(i => i.key));
+
+      // Remove datasets que não existem mais
+      for (const key of [...datasetByKey.keys()]) {
+        if (!keysNow.has(key)) removeDataset(key);
+      }
+
+      // Atualiza todos mantendo os objetos (animação suave)
+      for (const inv of investments) {
+        const ds = upsertDataset(inv);
+        const series = computeSeries(inv);
+        if (!Array.isArray(ds.data)) ds.data = new Array(state.labelDates.length).fill(null);
+        if (ds.data.length !== series.length) ds.data.length = series.length;
+        for (let i = 0; i < series.length; i++) ds.data[i] = series[i];
+      }
+
+      chart.update();
+    }
+
+    // =========================
+    // Refresh geral
+    // =========================
+    function refreshAll() {
+      const rows = [...document.querySelectorAll("#tbodyInv tr")];
+
+      const mapByRowId = new Map();
+      for (const tr of rows) {
+        const r = computeAndFillRow(tr);
+        mapByRowId.set(tr.dataset.rowId, r);
+
+        if (r) state.invCache.set(tr.dataset.rowId, r);
+        else state.invCache.delete(tr.dataset.rowId);
+      }
+
+      applySort();
+
+      const rowsNow = [...document.querySelectorAll("#tbodyInv tr")];
+      const ordered = rowsNow
+        .map(tr => mapByRowId.get(tr.dataset.rowId))
+        .filter(Boolean);
+
+      syncAllInvestmentsInChart(ordered);
+    }
+
+    // =========================
+    // PDF Export
+    // =========================
+    function toISODateForFile(d = new Date()) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    async function exportPDF() {
+      const btn = document.getElementById("btnPDF");
+      if (!btn) return;
+
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Gerando…`;
+
+      // abre notas para incluir a curva no PDF
+      const notes = document.getElementById("calcNotes");
+      const wasOpen = notes ? notes.open : false;
+      if (notes) notes.open = true;
+
+      // esconde controles marcados
+      const toHide = [...document.querySelectorAll('[data-export-hide="1"]')];
+      const prevDisplay = toHide.map(el => el.style.display);
+      toHide.forEach(el => el.style.display = "none");
+
+      // fundo branco durante captura
+      const prevBodyBg = document.body.style.background;
+      document.body.style.background = "#ffffff";
+
+      try {
+        // garante render do chart e layout
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const root = document.getElementById("pdfRoot");
+
+        const canvas = await html2canvas(root, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          scrollX: 0,
+          scrollY: -window.scrollY,
+          windowWidth: document.documentElement.clientWidth,
+          windowHeight: document.documentElement.clientHeight
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF("p", "mm", "a4");
+
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+
+        const imgWidth = pageWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        let position = 0;
+        let heightLeft = imgHeight;
+
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight, undefined, "FAST");
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+          position -= pageHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight, undefined, "FAST");
+          heightLeft -= pageHeight;
+        }
+
+        pdf.save(`renda-fixa-${toISODateForFile()}.pdf`);
+      } catch (err) {
+        console.error(err);
+        alert("Falha ao gerar PDF. Veja o console para detalhes.");
+      } finally {
+        // restaura UI
+        document.body.style.background = prevBodyBg;
+        toHide.forEach((el, i) => el.style.display = prevDisplay[i]);
+        if (notes) notes.open = wasOpen;
+
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+
+    // =========================
+    // Eventos
+    // =========================
+    function refreshRowAndMaybeChart(tr, commit = false) {
+      if (!tr) return;
+      const key = tr.dataset.rowId;
+
+      const r = computeAndFillRow(tr);
+
+      // Enquanto o usuário digita (ex.: data incompleta), não derruba o gráfico abruptamente.
+      if (!r && !commit) return;
+
+      // Em commit, se ficou inválido, remove do gráfico.
+      if (!r && commit) {
+        state.invCache.delete(key);
+        removeDataset(key);
+
+        // Reordena somente no commit (evita a linha "pular" enquanto digita)
+        if (state.sortField && state.sortField !== "none") applySort();
+
+        if (chart) chart.update();
+        return;
+      }
+
+      // r válido
+      state.invCache.set(key, r);
+
+      // Reordena somente no commit (evita a linha "pular" enquanto digita)
+      if (commit && state.sortField && state.sortField !== "none") applySort();
+
+      // No commit (change/blur), atualiza imediatamente; durante digitação, aplica debounce
+      scheduleInvestmentChartUpdate(r, !!commit);
+    }
+
+function wireEvents() {
+      document.getElementById("btnAddRow").addEventListener("click", () => addRow());
+
+      document.getElementById("tbodyInv").addEventListener("click", (e) => {
+        const btn = e.target.closest(".btnRemove");
+        if (!btn) return;
+        const tr = btn.closest("tr");
+        if (!tr) return;
+        const key = tr.dataset.rowId;
+        tr.remove();
+        state.invCache.delete(key);
+        removeDataset(key);
+        if (state.sortField && state.sortField !== "none") applySort();
+        if (chart) chart.update();
+      });
+
+      document.getElementById("tbodyInv").addEventListener("input", (e) => {
+        const tr = e.target.closest("tr");
+        if (!tr) return;
+        refreshRowAndMaybeChart(tr, false);
+      });
+      document.getElementById("tbodyInv").addEventListener("change", (e) => {
+        const tr = e.target.closest("tr");
+        if (!tr) return;
+        refreshRowAndMaybeChart(tr, true);
+      });
+
+      document.getElementById("tbodyInv").addEventListener("blur", (e) => {
+        const el = e.target;
+        if (!el.classList.contains("money-input")) return;
+        const n = brlToNumber(el.value);
+        el.value = Number.isFinite(n) ? numberToBRLInput(n) : "";
+        refreshRowAndMaybeChart(el.closest("tr"), true);
+      }, true);
+
+      document.getElementById("modePct").addEventListener("change", () => { state.chartMode = "pct"; refreshAll(); });
+      document.getElementById("modeBRL").addEventListener("change", () => { state.chartMode = "brl"; refreshAll(); });
+
+      document.getElementById("btnReset").addEventListener("click", () => restoreExample());
+
+      document.querySelector("thead").addEventListener("click", (e) => {
+        const btn = e.target.closest(".sort-btn");
+        if (!btn) return;
+        setSort(btn.dataset.sort);
+      });
+
+      document.getElementById("rateMode").addEventListener("change", async (e) => {
+        state.rateMode = e.target.value;
+        if (state.rateMode === "projection" && !state.selicProjection?.points?.length) {
+          await loadSelicProjectionCurve();
+        }
+        refreshAll();
+      });
+
+      document.getElementById("btnPDF").addEventListener("click", exportPDF);
+    }
+
+    function restoreExample() {
+      const tbody = document.getElementById("tbodyInv");
+      tbody.innerHTML = "";
+      rowSeq = 1;
+
+      const t0 = todayLocal();
+      const in6m  = formatBRDate(addMonthsClamped(t0, 6));
+      const in12m = formatBRDate(addMonthsClamped(t0, 12));
+      const in24m = formatBRDate(addMonthsClamped(t0, 24));
+
+      addRow({ name:"Exemplo - Poupança",         type:"poupanca", amount: 10000, maturityStr: in24m });
+      addRow({ name:"Exemplo CDB 100% CDI",     type:"cdb_pos",  amount: 10000, rate: 100, maturityStr: in24m });
+      addRow({ name:"Exemplo LCI 95% CDI",      type:"lci_pos",  amount: 10000, rate: 95,  maturityStr: in24m });
+      addRow({ name:"Exemplo CDB IPCA + 6",     type:"cdb_ipca", amount: 10000, rate: 6,   maturityStr: in24m });
+      addRow({ name:"Exemplo CDB Pré 12% a.a.", type:"cdb_pre",  amount: 10000, rate: 12,  maturityStr: in24m  });
+
+      state.sortField = "none";
+      state.sortDir = "desc";
+      updateSortHeaderIcons();
+
+      refreshAll();
+    }
+
+    // =========================
+    // Boot
+    // =========================
+    (async function init() {
+      ensureChart();
+      wireEvents();
+      restoreExample();
+
+      await loadIndices();
+      await loadSelicProjectionCurve();
+
+      refreshAll();
+    })();
+  </script>
+</body>
+</html>
